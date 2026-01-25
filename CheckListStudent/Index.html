@@ -19,8 +19,24 @@
   <div class="loading-overlay" id="loading">
     <div class="spinner-border text-primary" role="status"></div>
   </div>
+<div class="container text-center" id="successScreen" style="display: none; padding: 50px;">
+  <div class="mb-4">
+    <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" fill="#198754" class="bi bi-check-circle-fill" viewBox="0 0 16 16">
+      <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
+    </svg>
+  </div>
+  <h2 class="text-success">บันทึกข้อมูลเรียบร้อย!</h2>
+  <p class="text-muted">ข้อมูลการเช็คชื่อถูกส่งไปยัง Google Sheets แล้ว</p>
+  
+  <hr class="my-4">
 
-  <div class="container">
+  <div class="d-grid gap-2 col-6 mx-auto">
+    <button class="btn btn-primary" onclick="resetApp()">เช็คชื่อห้องอื่นต่อ</button>
+    <a href="https://docs.google.com/spreadsheets/d/1U6AeiensxgE6shacPkA1Tyk5dvTk-RTCbrGvBzEXgz0/edit?gid=1962460394#gid=1962460394" target="_blank" class="btn btn-outline-secondary">เปิดดู Google Sheets</a>
+  </div>
+</div>
+
+  <div class="container" id="mainForm">
     <div class="header-box">
       <h3> ระบบเช็คชื่อนักเรียน</h3>
     </div>
@@ -34,9 +50,6 @@
         <label>ชั้น</label>
         <select id="levelSelect" class="form-select" onchange="loadStudents()">
         <option value="" selected disabled>โปรดเลือก</option>
-        <option value="ม.1">ม.1</option>
-        <option value="ม.2">ม.2</option>
-        <option value="ม.3">ม.3</option>
         <option value="ม.4">ม.4</option>
         <option value="ม.5">ม.5</option>
         <option value="ม.6">ม.6</option>
@@ -100,6 +113,7 @@
     <div class="mt-3">
       <label>ผู้รายงาน</label>
       <select id="reporterSelect" class="form-select">
+        <option value="" selected disabled>โปรดเลือก</option>
         <option value="ครูประจำชั้น">ครูประจำชั้น</option>
         <option value="หัวหน้าห้อง">หัวหน้าห้อง</option>
       </select>
@@ -146,6 +160,7 @@
             <td class="name-col">${name}</td>
             <td>
               <select class="form-select status-select">
+                <option value="" disabled>โปรดเลือก</option>
                 <option value="มา" selected>มา</option>
                 <option value="ลา">ลา</option>
                 <option value="ขาด">ขาด</option>
@@ -164,9 +179,9 @@
     }
 
     function submitData() {
-      var level = document.getElementById('levelSelect').value;
-      var room = document.getElementById('roomSelect').value;
-      var rows = document.querySelectorAll('#studentTableBody tr');
+    var level = document.getElementById('levelSelect').value;
+    var room = document.getElementById('roomSelect').value;
+    var rows = document.querySelectorAll('#studentTableBody tr');
       
       if(rows.length == 0 || !level) {
         alert('กรุณาเลือกห้องเรียนก่อน');
@@ -190,11 +205,31 @@
 
       if(confirm('ยืนยันการบันทึกข้อมูล?')) {
         document.getElementById('loading').style.display = 'flex';
-        google.script.run.withSuccessHandler(function(res) {
-          alert(res);
-          document.getElementById('loading').style.display = 'none';
-        }).saveAttendance(payload);
+        
+        google.script.run
+          .withSuccessHandler(function(res) {
+            // กรณีสำเร็จ
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('mainForm').style.display = 'none';
+            document.getElementById('successScreen').style.display = 'block';
+          })
+          .withFailureHandler(function(error) {
+            // --- เพิ่มส่วนนี้: กรณีพัง ให้แจ้งเตือน ---
+            document.getElementById('loading').style.display = 'none';
+            alert('เกิดข้อผิดพลาด: ' + error.message); 
+          })
+          .saveAttendance(payload);
       }
+    }
+    
+    // ฟังก์ชันใหม่ สำหรับปุ่ม "เช็คชื่อห้องอื่นต่อ"
+    function resetApp() {
+      document.getElementById('successScreen').style.display = 'none';
+      document.getElementById('mainForm').style.display = 'block';
+      // ล้างค่า
+      document.getElementById('studentTableBody').innerHTML = '<tr><td colspan="3" class="text-center text-muted">กรุณาเลือกชั้นและห้อง</td></tr>';
+      document.getElementById('levelSelect').value = "";
+      document.getElementById('roomSelect').value = "";
     }
   </script>
 </body>
