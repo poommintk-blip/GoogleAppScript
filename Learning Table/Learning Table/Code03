@@ -1,0 +1,104 @@
+function doGet() {
+  return HtmlService.createHtmlOutputFromFile('Index') 
+      .setTitle('ตารางเรียนของฉัน')
+      .addMetaTag('viewport', 'width=device-width, initial-scale=1');
+}
+
+function getSchedule() {
+  var props = PropertiesService.getUserProperties();
+  var data = props.getProperty('mySchedule');
+  return data ? JSON.parse(data) : [];
+}
+
+function saveCourse(course) {
+  var props = PropertiesService.getUserProperties();
+  var data = props.getProperty('mySchedule');
+  var schedule = data ? JSON.parse(data) : [];
+  
+  course.id = new Date().getTime().toString();
+  schedule.push(course);
+  
+  props.setProperty('mySchedule', JSON.stringify(schedule));
+  return schedule;
+}
+
+function deleteCourse(id) {
+  var props = PropertiesService.getUserProperties();
+  var data = props.getProperty('mySchedule');
+  var schedule = data ? JSON.parse(data) : [];
+  
+  schedule = schedule.filter(function(c) { return c.id !== id; });
+  props.setProperty('mySchedule', JSON.stringify(schedule));
+  return schedule;
+}
+
+function clearSchedule() {
+  var props = PropertiesService.getUserProperties();
+  props.setProperty('mySchedule', JSON.stringify([]));
+  return [];
+}
+
+// ---------------------------------------------------------
+// ระบบค้นหาวิชาจาก REG SUT (อัปเดตให้รองรับการพิมพ์อิสระ)
+// ---------------------------------------------------------
+function searchCourseSUT(year, term, courseCode, courseName) {
+  Utilities.sleep(800); // หน่วงเวลาให้เหมือนโหลดจริง
+
+  // จัดการตัวแปร เผื่อผู้ใช้พิมพ์ตัวพิมพ์เล็กหรือเว้นวรรค
+  var sCode = (courseCode || "").trim().toUpperCase();
+  var sName = (courseName || "").trim().toUpperCase();
+
+  // ข้อมูลจำลองพื้นฐานที่จะแสดงผลตามสิ่งที่ผู้ใช้พิมพ์ค้นหา (Dynamic)
+  var mockResult = {
+    success: true,
+    courseDetails: {
+      code: sCode !== "" ? sCode : "UNKNOWN",
+      nameEN: sName !== "" ? sName : "MOCK COURSE " + sCode,
+      nameTH: "รายวิชาจำลอง",
+      credit: "3 (3-0-6)",
+      condition: "ไม่มี",
+      continueCourse: "ไม่มี",
+      equivalent: "-",
+      status: "ใช้งาน",
+      department: "สำนักวิชา",
+      term: term,
+      year: year
+    },
+    groups: [
+      {
+        version: "1",
+        group: "01",
+        seatInfo: "เปิด 60 ลง 30 เหลือ 30",
+        dayString: "อังคาร",
+        timeString: "13:00-16:00",
+        midterm: "-",
+        final: "-",
+        note: "รายวิชาจากการค้นหาแบบอิสระ"
+      }
+    ]
+  };
+
+  // กรณีค้นหา IST20 2507 จะแสดงข้อมูลเฉพาะ
+  if (sCode.includes("IST20 2507")) {
+    mockResult.courseDetails = {
+      code: "IST20 2507", nameEN: "ASEAN STUDIES", nameTH: "อาเซียนศึกษา",
+      credit: "2 (2-0-4)", condition: "ไม่มี", continueCourse: "ไม่มี", equivalent: "IST20 2507, 202331, IST20 2503", status: "ใช้งาน", department: "สำนักวิชาเทคโนโลยีสังคม, ศึกษาทั่วไป", term: term, year: year
+    };
+    mockResult.groups = [
+      { version: "1", group: "01", seatInfo: "(ที่นั่ง) เปิด 1500 ลง 593 เหลือ 907", dayString: "พฤหัสบดี", timeString: "10:00-12:00", midterm: "3 เม.ย. 2569 เวลา 15:00 - 17:00...", final: "18 พ.ค. 2569 เวลา 13:00 - 16:00...", note: "กลุ่มศึกษาทั่วไปแบบเลือก สำหรับหลักสูตร พ.ศ. 2560,2566" }
+    ];
+  }
+  // กรณีค้นหา DGT01 1010 จะแสดงข้อมูลเฉพาะ
+  else if (sCode.includes("DGT01 1010")) {
+    mockResult.courseDetails = {
+      code: "DGT01 1010", nameEN: "DIGITAL LITERACY", nameTH: "ความฉลาดทางดิจิทัล",
+      credit: "3 (3-0-6)", condition: "ไม่มี", continueCourse: "ไม่มี", equivalent: "-", status: "ใช้งาน", department: "ศาสตร์และศิลป์ดิจิทัล", term: term, year: year
+    };
+    mockResult.groups = [
+      { version: "1", group: "B6503-A", seatInfo: "เปิด 60 ลง 60 เหลือ 0", dayString: "จันทร์", timeString: "09:00-12:00", midterm: "-", final: "-", note: "(16 กุมภาพันธ์ 2569 - 27 มีนาคม 2569)" },
+      { version: "1", group: "B6109-A", seatInfo: "เปิด 60 ลง 50 เหลือ 10", dayString: "จันทร์", timeString: "09:00-12:00", midterm: "-", final: "-", note: "(6 เมษายน 2569 - 15 พฤษภาคม 2569)" }
+    ];
+  }
+
+  return mockResult;
+}

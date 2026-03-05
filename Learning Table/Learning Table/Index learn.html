@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+  <base target="_top">
+  <meta charset="UTF-8">
+  <title>ตารางเรียน</title>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background-color: #f0f2f5; font-family: 'Sarabun', 'Segoe UI', Tahoma, sans-serif; }
+    
+    /* กรอบตารางหลัก */
+    .timetable-wrapper { 
+      overflow-x: auto; 
+      background: #fff; 
+      box-shadow: 0 4px 12px rgba(0,0,0,0.08); 
+      border: 1px solid #ccc;
+      margin-bottom: 2rem;
+    }
+    
+    /* กำหนดให้ 1 ชั่วโมงกว้าง 120px (1 นาที = 2px) */
+    .timetable { display: flex; flex-direction: column; min-width: 1420px; border-collapse: collapse; }
+    
+    /* ส่วนหัว: แกนเวลา (แนวนอน) */
+    .time-header-row { display: flex; border-bottom: 1px solid #ccc; background: #fff; position: sticky; top: 0; z-index: 20; }
+    .corner-cell { 
+      width: 100px; flex-shrink: 0; border-right: 1px solid #ccc; 
+      background: #d9d9d9; display: flex; align-items: center; justify-content: center; 
+      font-weight: bold; font-size: 14px; color: #333; text-align: center;
+    }
+    
+    .time-ticks { display: flex; flex-grow: 1; } 
+    .time-col { 
+      width: 120px; flex-shrink: 0; border-right: 1px solid #ccc;
+      text-align: center; font-size: 13px; font-weight: 500; padding: 10px 0; color: #000;
+    }
+    
+    /* แถวของแต่ละวัน */
+    .day-row { display: flex; border-bottom: 1px solid #ccc; min-height: 90px; }
+    .day-row:last-child { border-bottom: none; }
+    .day-label { 
+      width: 100px; flex-shrink: 0; display: flex; align-items: center; justify-content: center; 
+      font-weight: bold; font-size: 15px; border-right: 1px solid #ccc; color: #000;
+    }
+    
+    /* สีของแต่ละวัน */
+    .day-mon { background-color: #ffe599; } /* เหลือง */
+    .day-tue { background-color: #d5a6bd; } /* ชมพู */
+    .day-wed { background-color: #b6d7a8; } /* เขียว */
+    .day-thu { background-color: #f4cccc; } /* ส้มอ่อน */
+    .day-fri { background-color: #9fc5e8; } /* ฟ้า */
+    .day-sat { background-color: #b4a7d6; } /* ม่วง */
+    .day-sun { background-color: #ea9999; } /* แดง */
+    
+    /* พื้นที่ตารางของแต่ละวัน */
+    .day-track { 
+      position: relative; flex-grow: 1; 
+      background-image: linear-gradient(to right, #ccc 1px, transparent 1px); 
+      background-size: 120px 100%; /* เส้นตารางทุกๆ 120px (1 ชม.) */
+    }
+    
+    /* การ์ดวิชาเรียน */
+    .course-card {
+      position: absolute;
+      color: #000; 
+      padding: 4px;
+      font-size: 13px;
+      line-height: 1.2;
+      text-align: center;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      border: 1px solid rgba(0,0,0,0.1);
+      transition: all 0.2s ease;
+      text-shadow: 0px 0px 2px rgba(255,255,255,0.7); 
+    }
+    .course-card:hover { z-index: 10 !important; filter: brightness(0.95); box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+    
+    .course-title { font-size: 14px; font-weight: bold; margin-bottom: 2px; }
+    .course-group { font-size: 13px; }
+    .course-note { font-size: 10px; margin-top: 2px; }
+    
+    /* ปุ่มลบวิชาในการ์ด */
+    .btn-delete-course {
+      position: absolute; top: 2px; right: 2px;
+      background: rgba(255,255,255,0.4); border: 1px solid rgba(0,0,0,0.2); color: #000;
+      border-radius: 50%; width: 18px; height: 18px; font-size: 12px; line-height: 1;
+      cursor: pointer; display: flex; align-items: center; justify-content: center;
+      opacity: 0; transition: opacity 0.2s;
+    }
+    .course-card:hover .btn-delete-course { opacity: 1; }
+    .btn-delete-course:hover { background: #dc3545; color: white; border-color: #dc3545; }
+
+  </style>
+</head>
+<body>
+
+<div class="container-fluid px-4 py-4">
+  <h2 class="mb-4 fw-bold text-center">ตารางเรียน</h2>
+  
+  <div class="d-flex justify-content-end mb-2">
+    <button class="btn btn-primary fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#addModal">+ เพิ่มวิชาเรียน</button>
+  </div>
+
+  <div class="timetable-wrapper">
+    <div class="timetable">
+      <div class="time-header-row">
+        <div class="corner-cell">วัน / เวลา</div>
+        <div class="time-ticks" id="timeTicks">
+          </div>
+      </div>
+      
+      <div class="day-row" data-day="1"><div class="day-label day-mon">จันทร์</div><div class="day-track"></div></div>
+      <div class="day-row" data-day="2"><div class="day-label day-tue">อังคาร</div><div class="day-track"></div></div>
+      <div class="day-row" data-day="3"><div class="day-label day-wed">พุธ</div><div class="day-track"></div></div>
+      <div class="day-row" data-day="4"><div class="day-label day-thu">พฤหัสฯ</div><div class="day-track"></div></div>
+      <div class="day-row" data-day="5"><div class="day-label day-fri">ศุกร์</div><div class="day-track"></div></div>
+      <div class="day-row" data-day="6"><div class="day-label day-sat">เสาร์</div><div class="day-track"></div></div>
+      <div class="day-row" data-day="7"><div class="day-label day-sun">อาทิตย์</div><div class="day-track"></div></div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="addModal" tabindex="-1">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title fw-bold">เพิ่มวิชาเรียน</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body">
+        <div class="row mb-3">
+          <div class="col-7">
+            <label class="form-label fw-bold">ชื่อวิชา</label>
+            <input type="text" class="form-control" id="subjectName" placeholder="เช่น DGT01 1010" required>
+          </div>
+          <div class="col-5">
+            <label class="form-label fw-bold">กลุ่มเรียน/ห้อง</label>
+            <input type="text" class="form-control" id="courseGroup" placeholder="เช่น B6503-A">
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-bold">หมายเหตุ (แสดงตัวเล็กด้านล่าง)</label>
+          <input type="text" class="form-control" id="courseNote" placeholder="เช่น (16 กุมภาพันธ์ - 27 มีนาคม)">
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-bold">วัน</label>
+          <select class="form-select" id="dayOfWeek">
+            <option value="1">จันทร์</option>
+            <option value="2">อังคาร</option>
+            <option value="3">พุธ</option>
+            <option value="4">พฤหัสบดี</option>
+            <option value="5">ศุกร์</option>
+            <option value="6">เสาร์</option>
+            <option value="7">อาทิตย์</option>
+          </select>
+        </div>
+        <div class="row mb-3">
+          <div class="col">
+            <label class="form-label fw-bold">เวลาเริ่ม</label>
+            <select class="form-select" id="startTime">
+              <option value="08:00">08:00</option>
+              <option value="09:00" selected>09:00</option>
+              <option value="10:00">10:00</option>
+              <option value="11:00">11:00</option>
+              <option value="12:00">12:00</option>
+              <option value="13:00">13:00</option>
+              <option value="14:00">14:00</option>
+              <option value="15:00">15:00</option>
+              <option value="16:00">16:00</option>
+              <option value="17:00">17:00</option>
+            </select>
+          </div>
+          <div class="col">
+            <label class="form-label fw-bold">เวลาสิ้นสุด</label>
+            <select class="form-select" id="endTime">
+              <option value="09:00">09:00</option>
+              <option value="10:00">10:00</option>
+              <option value="11:00">11:00</option>
+              <option value="12:00" selected>12:00</option>
+              <option value="13:00">13:00</option>
+              <option value="14:00">14:00</option>
+              <option value="15:00">15:00</option>
+              <option value="16:00">16:00</option>
+              <option value="17:00">17:00</option>
+              <option value="18:00">18:00</option>
+              <option value="19:00">19:00</option>
+            </select>
+          </div>
+        </div>
+        <div class="mb-3">
+          <label class="form-label fw-bold">สีพื้นหลังวิชา</label>
+          <input type="color" class="form-control form-control-color w-100" id="color" value="#ffe599">
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">ยกเลิก</button>
+        <button type="button" class="btn btn-primary px-4" onclick="addCourse()">บันทึก</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+  // 1 ชั่วโมง = 120px -> 1 นาที = 2px
+  const PIXELS_PER_MINUTE = 2;
+  const START_HOUR = 8;
+  const END_HOUR = 19;
+
+  // วาดช่วงเวลาด้านบน (08:00-09:00 ถึง 18:00-19:00)
+  const timeTicks = document.getElementById('timeTicks');
+  let timeHtml = "";
+  for (let hour = START_HOUR; hour < END_HOUR; hour++) {
+    let currentHourStr = hour.toString().padStart(2, '0') + ":00";
+    let nextHourStr = (hour + 1).toString().padStart(2, '0') + ":00";
+    timeHtml += `<div class="time-col">${currentHourStr}-${nextHourStr}</div>`;
+  }
+  timeTicks.innerHTML = timeHtml;
+
+  // โหลดตาราง
+  window.onload = function() {
+    if (typeof google !== 'undefined') {
+      google.script.run.withSuccessHandler(renderSchedule).getSchedule();
+    }
+  };
+
+  // แปลง String "HH:MM" เป็นจำนวนนาทีรวม
+  function timeToMinutes(timeStr) {
+    let parts = timeStr.split(':');
+    return parseInt(parts[0]) * 60 + parseInt(parts[1]);
+  }
+
+  // วาดวิชาลงตารางพร้อมคำนวณการทับซ้อน (Stacking)
+  function renderSchedule(courses) {
+    if (!courses) return;
+    
+    // เคลียร์แทร็ก
+    document.querySelectorAll('.day-track').forEach(el => el.innerHTML = '');
+
+    // วนลูปสร้างทีละวัน เพื่อจัดระเบียบการทับซ้อน
+    for (let day = 1; day <= 7; day++) {
+      let dayCourses = courses.filter(c => parseInt(c.day) === day);
+      if (dayCourses.length === 0) continue;
+
+      // เรียงตามเวลาเริ่ม
+      dayCourses.sort((a, b) => timeToMinutes(a.startTime) - timeToMinutes(b.startTime));
+
+      // Algorithm จัดกลุ่มทับซ้อน (Assign into tracks)
+      let overlappingTracks = [];
+      dayCourses.forEach(c => {
+        let startMin = timeToMinutes(c.startTime);
+        let endMin = timeToMinutes(c.endTime);
+        
+        let placed = false;
+        // หาช่องที่ว่างใน Track
+        for (let i = 0; i < overlappingTracks.length; i++) {
+          let lastCourseInTrack = overlappingTracks[i][overlappingTracks[i].length - 1];
+          let lastEndMin = timeToMinutes(lastCourseInTrack.endTime);
+          
+          if (startMin >= lastEndMin) {
+            overlappingTracks[i].push(c);
+            c.trackIndex = i;
+            placed = true;
+            break;
+          }
+        }
+        // ถ้าไม่มี Track ไหนว่างเลย ให้เปิด Track ใหม่
+        if (!placed) {
+          overlappingTracks.push([c]);
+          c.trackIndex = overlappingTracks.length - 1;
+        }
+      });
+
+      let totalTracksNum = overlappingTracks.length; // จำนวนวิชาที่ทับกันสูงสุดในเวลานั้น
+
+      // นำไปจัดวาง
+      dayCourses.forEach(c => {
+        let startMin = timeToMinutes(c.startTime);
+        let endMin = timeToMinutes(c.endTime);
+        let baseMin = START_HOUR * 60; // 08:00 = 480 นาที
+
+        let leftPx = (startMin - baseMin) * PIXELS_PER_MINUTE;
+        let widthPx = (endMin - startMin) * PIXELS_PER_MINUTE;
+
+        // คำนวณความสูงตามจำนวนที่ทับซ้อนกัน
+        let heightPercent = 100 / totalTracksNum;
+        let topPercent = c.trackIndex * heightPercent;
+
+        let div = document.createElement('div');
+        div.className = 'course-card';
+        div.style.left = leftPx + 'px';
+        div.style.width = widthPx + 'px';
+        div.style.top = topPercent + '%';
+        div.style.height = heightPercent + '%';
+        div.style.backgroundColor = c.color;
+
+        let noteHtml = c.note ? `<div class="course-note">${c.note}</div>` : '';
+        
+        div.innerHTML = `
+          <button class="btn-delete-course" title="ลบวิชา" onclick="removeCourse(event, '${c.id}', '${c.name}')">&times;</button>
+          <div class="course-title">${c.name}</div>
+          <div class="course-group">${c.group || ''}</div>
+          ${noteHtml}
+        `;
+
+        let track = document.querySelector(`.day-row[data-day="${day}"] .day-track`);
+        if(track) track.appendChild(div);
+      });
+    }
+  }
+
+  // ส่งข้อมูลวิชาใหม่
+  function addCourse() {
+    let name = document.getElementById('subjectName').value;
+    let group = document.getElementById('courseGroup').value;
+    let note = document.getElementById('courseNote').value; // หมายเหตุด้านล่าง
+    let day = document.getElementById('dayOfWeek').value;
+    let startTime = document.getElementById('startTime').value;
+    let endTime = document.getElementById('endTime').value;
+    let color = document.getElementById('color').value;
+
+    if(!name || !startTime || !endTime) {
+      alert("กรุณากรอกข้อมูลให้ครบถ้วน"); return;
+    }
+    if(startTime >= endTime) {
+      alert("เวลาสิ้นสุดต้องมากกว่าเวลาเริ่ม"); return;
+    }
+
+    let startH = parseInt(startTime.split(':')[0]);
+    let endH = parseInt(endTime.split(':')[0]);
+    
+    if(startH < START_HOUR || endH > END_HOUR || (endH === END_HOUR && parseInt(endTime.split(':')[1]) > 0)) {
+      alert(`เวลาต้องอยู่ระหว่าง 08:00 - 19:00 น.`); return;
+    }
+
+    let course = { 
+      name: name, group: group, note: note, day: day, 
+      startTime: startTime, endTime: endTime, color: color 
+    };
+    
+    bootstrap.Modal.getInstance(document.getElementById('addModal')).hide();
+    
+    if (typeof google !== 'undefined') {
+      google.script.run.withSuccessHandler(renderSchedule).saveCourse(course);
+    }
+  }
+
+  // ลบวิชา
+  function removeCourse(event, courseId, courseName) {
+    event.stopPropagation();
+    if(confirm(`ต้องการลบวิชา "${courseName}" ใช่หรือไม่?`)) {
+      if (typeof google !== 'undefined') {
+        google.script.run.withSuccessHandler(renderSchedule).deleteCourse(courseId);
+      }
+    }
+  }
+</script>
+</body>
+</html>
