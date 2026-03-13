@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <base target="_top">
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+  <style>
+    body { background-color: #f0f2f5; font-family: 'Sarabun', sans-serif; }
+    .container { max-width: 800px; background: white; padding: 30px; margin-top: 20px; border-radius: 15px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+    .header-box { text-align: center; margin-bottom: 20px; }
+    .table-responsive { margin-top: 20px; border-radius: 8px; overflow: hidden; }
+    th { background-color: #e9ecef !important; text-align: center; }
+    td { vertical-align: middle; }
+    .status-btn { width: 100%; }
+    .loading-overlay { position: fixed; top:0; left:0; width:100%; height:100%; background:rgba(255,255,255,0.8); z-index:999; display:none; justify-content:center; align-items:center; }
+  </style>
+</head>
+<body>
+
+  <div class="loading-overlay" id="loading">
+    <div class="spinner-border text-primary" role="status"></div>
+  </div>
+
+<div class="container text-center" id="successScreen" style="display: none; padding: 50px;">
+  <div class="mb-4">
+    <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" fill="#198754" class="bi bi-check-circle-fill" viewBox="0 0 16 16">
+      <path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>
+    </svg>
+  </div>
+  <h2 class="text-success" data-lang="msgSuccessTitle">บันทึกข้อมูลเรียบร้อย!</h2>
+  <p class="text-muted" data-lang="msgSuccessDesc">ข้อมูลการเช็คชื่อถูกส่งไปยัง Google Sheets แล้ว</p>
+  <hr class="my-4">
+  <div class="d-grid gap-2 col-6 mx-auto">
+    <button class="btn btn-primary" onclick="resetApp()" data-lang="btnNext">เช็คชื่อห้องอื่นต่อ</button>
+    <a href="https://docs.google.com/spreadsheets/d/1U6AeiensxgE6shacPkA1Tyk5dvTk-RTCbrGvBzEXgz0/edit#gid=1962460394" target="_blank" class="btn btn-outline-secondary" data-lang="btnOpenSheet">เปิดดู Google Sheets</a>
+  </div>
+</div>
+
+<div class="container" id="mainForm">
+  <div class="d-flex justify-content-end mb-2">
+    <button class="btn btn-outline-primary btn-sm" onclick="toggleLanguage()">
+      <span id="langBtnText">English</span>
+    </button>
+  </div>
+
+  <div class="header-box">
+    <h3 data-lang="title">ระบบเช็คชื่อนักเรียน</h3>
+  </div>
+
+  <div class="row g-3">
+    <div class="col-md-12">
+      <label data-lang="labelDate">วันที่</label>
+      <input type="date" id="dateInput" class="form-control">
+    </div>
+    <div class="col-md-6">
+      <label data-lang="labelLevel">ชั้น</label>
+      <select id="levelSelect" class="form-select" onchange="loadStudents()">
+        <option value="" selected disabled data-lang="optSelect">โปรดเลือก</option>
+        <option value="ม.4">ม.4</option>
+        <option value="ม.5">ม.5</option>
+        <option value="ม.6">ม.6</option>
+      </select>
+    </div>
+    <div class="col-md-6">
+      <label data-lang="labelRoom">ห้อง</label>
+      <select id="roomSelect" class="form-select" onchange="loadStudents()">
+        <option value="" selected disabled data-lang="optSelect">โปรดเลือก</option>
+        <script>
+          for(let i=1; i<=26; i++) document.write(`<option value="${i}">${i}</option>`);
+        </script>
+      </select>
+    </div>
+  </div>
+
+  <div class="d-flex justify-content-center gap-2 mt-4">
+    <button class="btn btn-success btn-sm" onclick="setAllStatus('มา')" data-lang="btnAllPresent">มาทั้งหมด</button>
+    <button class="btn btn-warning btn-sm" onclick="setAllStatus('ลา')" data-lang="btnAllLeave">ลาทั้งหมด</button>
+    <button class="btn btn-danger btn-sm" onclick="setAllStatus('ขาด')" data-lang="btnAllAbsent">ขาดทั้งหมด</button>
+  </div>
+
+  <div class="table-responsive">
+    <table class="table table-bordered table-hover">
+      <thead>
+        <tr>
+          <th width="10%" data-lang="thNo">ที่</th>
+          <th width="50%" data-lang="thName">ชื่อนักเรียน</th>
+          <th width="40%" data-lang="thStatus">สถานะ</th>
+        </tr>
+      </thead>
+      <tbody id="studentTableBody">
+        <tr><td colspan="3" class="text-center text-muted" data-lang="msgInstruction">กรุณาเลือกชั้นและห้อง</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="mt-3">
+    <label data-lang="labelReporter">ผู้รายงาน</label>
+    <select id="reporterSelect" class="form-select">
+      <option value="" selected disabled data-lang="optSelect">โปรดเลือก</option>
+      <option value="ครูประจำชั้น" data-lang="optTeacher">ครูประจำชั้น</option>
+      <option value="หัวหน้าห้อง" data-lang="optLeader">หัวหน้าห้อง</option>
+    </select>
+  </div>
+
+  <div class="row mt-4">
+    <div class="col-6">
+      <button class="btn btn-primary w-100" onclick="submitData()" data-lang="btnSave">บันทึกข้อมูล</button>
+    </div>
+    <div class="col-6">
+      <button class="btn btn-secondary w-100" onclick="window.location.reload()" data-lang="btnClear">ล้างแบบฟอร์ม</button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // --- ระบบจัดการภาษา ---
+  const translations = {
+    th: {
+      title: "ระบบเช็คชื่อนักเรียน",
+      labelDate: "วันที่",
+      labelLevel: "ชั้น",
+      labelRoom: "ห้อง",
+      optSelect: "โปรดเลือก",
+      btnAllPresent: "มาทั้งหมด",
+      btnAllLeave: "ลาทั้งหมด",
+      btnAllAbsent: "ขาดทั้งหมด",
+      thNo: "ที่",
+      thName: "ชื่อนักเรียน",
+      thStatus: "สถานะ",
+      msgInstruction: "กรุณาเลือกชั้นและห้อง",
+      labelReporter: "ผู้รายงาน",
+      optTeacher: "ครูประจำชั้น",
+      optLeader: "หัวหน้าห้อง",
+      btnSave: "บันทึกข้อมูล",
+      btnClear: "ล้างแบบฟอร์ม",
+      langBtn: "English",
+      statusPresent: "มา",
+      statusLeave: "ลา",
+      statusAbsent: "ขาด",
+      statusLate: "สาย",
+      msgSuccessTitle: "บันทึกข้อมูลเรียบร้อย!",
+      msgSuccessDesc: "ข้อมูลการเช็คชื่อถูกส่งไปยัง Google Sheets แล้ว",
+      btnNext: "เช็คชื่อห้องอื่นต่อ",
+      btnOpenSheet: "เปิดดู Google Sheets",
+      confirmSave: "ยืนยันการบันทึกข้อมูล?"
+    },
+    en: {
+      title: "Student Attendance System",
+      labelDate: "Date",
+      labelLevel: "Level",
+      labelRoom: "Room",
+      optSelect: "Please Select",
+      btnAllPresent: "All Present",
+      btnAllLeave: "All On Leave",
+      btnAllAbsent: "All Absent",
+      thNo: "No.",
+      thName: "Student Name",
+      thStatus: "Status",
+      msgInstruction: "Please select level and room",
+      labelReporter: "Reporter",
+      optTeacher: "Class Teacher",
+      optLeader: "Room Leader",
+      btnSave: "Save Data",
+      btnClear: "Clear Form",
+      langBtn: "ภาษาไทย",
+      statusPresent: "Present",
+      statusLeave: "On Leave",
+      statusAbsent: "Absent",
+      statusLate: "Late",
+      msgSuccessTitle: "Save Successful!",
+      msgSuccessDesc: "Data has been sent to Google Sheets.",
+      btnNext: "Continue with other class",
+      btnOpenSheet: "Open Google Sheets",
+      confirmSave: "Confirm data recording?"
+    }
+  };
+
+  let currentLang = 'th';
+
+  function toggleLanguage() {
+    currentLang = currentLang === 'th' ? 'en' : 'th';
+    updateUI();
+  }
+
+  function updateUI() {
+    document.querySelectorAll('[data-lang]').forEach(el => {
+      const key = el.getAttribute('data-lang');
+      el.innerText = translations[currentLang][key];
+    });
+    document.getElementById('langBtnText').innerText = translations[currentLang].langBtn;
+    
+    // อัปเดตตารางถ้ามีข้อมูลอยู่
+    const selects = document.querySelectorAll('.status-select');
+    selects.forEach(s => {
+      s.options[1].text = translations[currentLang].statusPresent;
+      s.options[2].text = translations[currentLang].statusLeave;
+      s.options[3].text = translations[currentLang].statusAbsent;
+      s.options[4].text = translations[currentLang].statusLate;
+    });
+  }
+
+  // --- ฟังก์ชันการทำงานเดิม ---
+  document.getElementById('dateInput').valueAsDate = new Date();
+
+  function loadStudents() {
+    var level = document.getElementById('levelSelect').value;
+    var room = document.getElementById('roomSelect').value;
+    if(level && room) {
+      document.getElementById('loading').style.display = 'flex';
+      google.script.run.withSuccessHandler(renderTable).getStudentByClass(level, room);
+    }
+  }
+
+  function renderTable(students) {
+    document.getElementById('loading').style.display = 'none';
+    var tbody = document.getElementById('studentTableBody');
+    tbody.innerHTML = '';
+    if(students.length == 0) {
+      tbody.innerHTML = `<tr><td colspan="3" class="text-center">${currentLang==='th'?'ไม่พบข้อมูล':'Data not found'}</td></tr>`;
+      return;
+    }
+    students.forEach((name, index) => {
+      var row = `<tr>
+        <td class="text-center">${index + 1}</td>
+        <td class="name-col">${name}</td>
+        <td>
+          <select class="form-select status-select">
+            <option value="" disabled>${translations[currentLang].optSelect}</option>
+            <option value="มา" selected>${translations[currentLang].statusPresent}</option>
+            <option value="ลา">${translations[currentLang].statusLeave}</option>
+            <option value="ขาด">${translations[currentLang].statusAbsent}</option>
+            <option value="สาย">${translations[currentLang].statusLate}</option>
+          </select>
+        </td>
+      </tr>`;
+      tbody.innerHTML += row;
+    });
+  }
+
+  function setAllStatus(status) {
+    document.querySelectorAll('.status-select').forEach(s => s.value = status);
+  }
+
+  function submitData() {
+    var level = document.getElementById('levelSelect').value;
+    var room = document.getElementById('roomSelect').value;
+    var rows = document.querySelectorAll('#studentTableBody tr');
+    if(rows.length <= 1 && rows[0].innerText.includes('เลือก')) {
+      alert(currentLang==='th'?'กรุณาเลือกห้องก่อน':'Please select class first');
+      return;
+    }
+    var dataList = [];
+    rows.forEach(row => {
+      var nameCol = row.querySelector('.name-col');
+      if(nameCol){
+        dataList.push({name: nameCol.innerText, status: row.querySelector('.status-select').value});
+      }
+    });
+
+    if(confirm(translations[currentLang].confirmSave)) {
+      document.getElementById('loading').style.display = 'flex';
+      google.script.run
+        .withSuccessHandler(function() {
+          document.getElementById('loading').style.display = 'none';
+          document.getElementById('mainForm').style.display = 'none';
+          document.getElementById('successScreen').style.display = 'block';
+        })
+        .saveAttendance({
+          date: document.getElementById('dateInput').value,
+          level: level,
+          room: room,
+          reporter: document.getElementById('reporterSelect').value,
+          list: dataList
+        });
+    }
+  }
+
+  function resetApp() {
+    document.getElementById('successScreen').style.display = 'none';
+    document.getElementById('mainForm').style.display = 'block';
+    document.getElementById('studentTableBody').innerHTML = `<tr><td colspan="3" class="text-center text-muted" data-lang="msgInstruction">${translations[currentLang].msgInstruction}</td></tr>`;
+    document.getElementById('levelSelect').value = "";
+    document.getElementById('roomSelect').value = "";
+  }
+</script>
+</body>
+</html>
